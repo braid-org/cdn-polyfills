@@ -7,6 +7,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "braid-http": "^1.5.0"
+    "braid-http": "^1.5.1"
   }
 }

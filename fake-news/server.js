@@ -133,13 +133,9 @@ function serve_resource (req, res, resource) {
         resource.subscribers.add(res)
         stats_changed()
 
-        // A subscriber resuming from the current edition has missed nothing.
-        // It still needs the response headers now, and Node holds them back
-        // until the first body byte unless told to flush.
+        // A subscriber resuming from the current edition has missed nothing
         if (!req.parents || req.parents[0] !== version)
             res.sendUpdate({version: [version], body: resource.body()})
-        else
-            res.flushHeaders()
     } else if (req.headers['if-none-match'] === etag) {
         res.statusCode = 304
         res.end()
