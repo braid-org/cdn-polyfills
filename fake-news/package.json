@@ -1,0 +1,12 @@
+{
+  "name": "fake-news",
+  "version": "0.0.1",
+  "description": "A fictional news site that serves as the Braid-HTTP origin for the CDN demos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "braid-http": "^1.4.12"
+  }
+}

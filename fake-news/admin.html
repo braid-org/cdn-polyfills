@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake News: Admin</title>
+<style>
+  body { margin: 0; padding: 24px 16px; font: 15px/1.4 system-ui, sans-serif; color: #111; background: #f7f5f0; max-width: 760px; margin: 0 auto; }
+  h1 { font-family: Georgia, serif; font-variant: small-caps; letter-spacing: 2px; margin: 0 0 4px; }
+  h1 a { color: inherit; text-decoration: none; }
+  .sub { color: #666; margin-bottom: 24px; }
+  section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: #666; margin: 0 0 12px; }
+  .breaking { border-color: #b3001b; }
+  .breaking.on { background: #b3001b; color: #fff; }
+  .breaking .title { font: bold 20px Georgia, serif; margin-bottom: 10px; }
+  button { font: inherit; padding: 8px 16px; border-radius: 4px; border: 1px solid #b3001b; background: #b3001b; color: #fff; cursor: pointer; }
+  .breaking.on button { background: #fff; color: #b3001b; }
+  label { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eee; cursor: pointer; }
+  label:last-child { border-bottom: none; }
+  label input { width: 18px; height: 18px; }
+  label .byline { color: #888; font-size: 12px; margin-left: auto; white-space: nowrap; }
+  label.off { color: #888; }
+  table { border-collapse: collapse; }
+  td { padding: 3px 24px 3px 0; }
+  td:first-child { color: #666; }
+  #connection { float: right; font-size: 12px; }
+  .online { color: #2a2; }
+  .offline { color: #c22; }
+</style>
+</head>
+<body>
+<span id="connection"></span>
+<h1><a href="/">Fake News</a> · Admin</h1>
+<div class="sub">Every change here is pushed to every reader's open page.</div>
+
+<section class="breaking" id="breaking-box">
+  <h2>Breaking news</h2>
+  <div class="title" id="breaking-title"></div>
+  <button id="breaking-button"></button>
+</section>
+
+<section>
+  <h2>Articles</h2>
+  <div id="articles"></div>
+</section>
+
+<section>
+  <h2>Origin server</h2>
+  <table id="stats"></table>
+</section>
+
+<script src="/braid-http-client.js"></script>
+<script>
+var articles = [], stats = null
+
+function put_published (id, published) {
+    fetch('/articles/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({published})
+    })
+}
+
+function render () {
+    var breaking = articles.find(a => a.breaking)
+    if (breaking) {
+        var box = document.getElementById('breaking-box')
+        box.classList.toggle('on', breaking.published)
+        document.getElementById('breaking-title').textContent = breaking.title
+        var button = document.getElementById('breaking-button')
+        button.textContent = breaking.published ? 'Take it down' : 'Publish breaking news'
+        button.onclick = () => put_published(breaking.id, !breaking.published)
+    }
+
+    document.getElementById('articles').innerHTML = articles.filter(a => !a.breaking).map(a =>
+        `<label class="${a.published ? 'on' : 'off'}">
+           <input type="checkbox" data-id="${a.id}" ${a.published ? 'checked' : ''}>
+           <span>${a.title}</span>
+           <span class="byline">${a.byline}</span>
+         </label>`).join('')
+    for (var box of document.querySelectorAll('#articles input'))
+        box.onchange = e => put_published(e.target.dataset.id, e.target.checked)
+
+    if (stats)
+        document.getElementById('stats').innerHTML =
+            Object.entries(stats.subscriptions).map(([url, n]) =>
+                `<tr><td>subscribers to ${url}</td><td>${n}</td></tr>`).join('')
+            + `<tr><td>requests served</td><td>${stats.requests}</td></tr>`
+            + `<tr><td>updates pushed</td><td>${stats.updates_sent}</td></tr>`
+            + `<tr><td>uptime</td><td>${stats.uptime_seconds} s</td></tr>`
+}
+
+function show_connection (online) {
+    document.getElementById('connection').innerHTML = online
+        ? '<span class="online">&#9679; live</span>'
+        : '<span class="offline">&#9675; reconnecting</span>'
+}
+
+// The page never updates its own controls after a click; it waits for the
+// server's pushed state, so several admin tabs always agree.
+braid_fetch('/state', {subscribe: true, retry: true, heartbeats: 20, onSubscriptionStatus: s => show_connection(s.online)})
+    .then(res => res.subscribe(update => {
+        articles = JSON.parse(update.body_text).articles
+        render()
+    }))
+
+braid_fetch('/stats', {subscribe: true, retry: true, heartbeats: 20})
+    .then(res => res.subscribe(update => {
+        stats = JSON.parse(update.body_text)
+        render()
+    }))
+</script>
+</body>
+</html>
