@@ -10,10 +10,7 @@ GET.
 ## Run it
 
     npm install
-    node server.js          # http://localhost:8080/ and /admin
-
-`PORT` sets the port.  `state.json` holds which articles are published, and
-is created on the first change.
+    node server.js 3458         # http://localhost:3458/ and /admin
 
 ## Resources
 

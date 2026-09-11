@@ -1,5 +1,5 @@
 // Fake News: a fictional news site that speaks Braid-HTTP, built to sit
-// behind CDNs in the braid-cdn-demos.  Three subscribable resources:
+// behind CDNs for braid-cdn-polyfills.  Three subscribable resources:
 //
 //   GET /        the front page, as complete HTML on every edition
 //   GET /state   which articles are published, as JSON, for the admin page
@@ -19,7 +19,7 @@ var http = require('http'),
     articles = require('./articles'),
     render_front_page = require('./render')
 
-var port = process.env.PORT || 8080,
+var port = process.argv[2] || process.env.PORT || 8080,
     state_file = path.join(__dirname, 'state.json'),
     client_library = path.join(__dirname, 'node_modules/braid-http/braid-http-client.js')
 
