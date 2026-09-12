@@ -53,11 +53,12 @@
 // publish time against this browser's clock, so it is only meaningful when
 // the two clocks agree.
 (function () {
-    var meta = name => document.querySelector('meta[name="' + name + '"]').content
+    var meta = name => document.querySelector('meta[name="' + name + '"]')?.content
     var version = meta('version'),
         edited_at = +meta('edited-at'),
         online = false,
         latency = null,
+        page_from = meta('served-by') || 'origin',
         served_by = '…'
 
     function render_status () {
@@ -67,7 +68,8 @@
             + '<span>Edition <b>' + version + '</b></span>'
             + '<span>published <b>' + new Date(edited_at).toLocaleTimeString() + '</b> (' + age + ' s ago)</span>'
             + '<span>edit to screen: <b>' + (latency === null ? '—' : latency + ' ms') + '</b></span>'
-            + '<span>served by <b>' + served_by + '</b></span>'
+            + '<span>page from <b>' + page_from + '</b></span>'
+            + '<span>updates via <b>' + served_by + '</b></span>'
     }
     setInterval(render_status, 1000)
     render_status()
