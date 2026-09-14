@@ -54,7 +54,8 @@ function set_published (id, published) {
 }
 
 // Counters shown on the admin page
-var stats = {started_at: Date.now(), requests: 0, updates_sent: 0, stats_version: 0}
+// The stats version starts from the clock so it keeps rising across restarts
+var stats = {started_at: Date.now(), requests: 0, updates_sent: 0, stats_version: Date.now()}
 
 var resources = {
     '/': {
@@ -120,12 +121,16 @@ function serve_resource (req, res, resource) {
     res.setHeader('Repr-Type', resource.repr_type)
     res.setHeader('ETag', etag)
 
-    // Caches that do not understand subscriptions must revalidate every
-    // time; the ETag makes that a cheap 304.  A Braid-aware cache serves
-    // from its copy for as long as it holds a subscription instead.
-    res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate')
+    // Caches that do not understand subscriptions must check every time,
+    // and the ETag makes that a cheap 304; a Braid-aware cache serves from
+    // its copy for as long as it holds a subscription instead.  If the
+    // origin is down, any cache may serve what it has for a day.
+    res.setHeader('Cache-Control', 'public, max-age=0, stale-if-error=86400')
 
     if (req.subscribe) {
+        // Lets a subscriber resuming from the current edition tell "nothing
+        // missed" from "nothing sent yet"
+        res.setHeader('Current-Version', JSON.stringify(version))
         res.startSubscription({onClose: () => {
             resource.subscribers.delete(res)
             stats_changed()

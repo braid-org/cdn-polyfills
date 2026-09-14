@@ -58,8 +58,23 @@
         edited_at = +meta('edited-at'),
         online = false,
         latency = null,
-        page_from = meta('served-by') || 'origin',
+        page_from = describe_cache_status(meta('served-by')),
         served_by = '…'
+
+    // Turns a Cache-Status header (RFC 9211) into a few words: which cache
+    // answered and whether its copy was live, fresh, or stale
+    function describe_cache_status (text) {
+        if (!text) return 'origin'
+        var entries = text.split(',').map(e => e.trim().split(';').map(p => p.trim())),
+            hit = entries.find(e => e.includes('hit')),
+            stale = entries.find(e => e.some(p => p.startsWith('fwd=stale'))),
+            bypass = entries.find(e => e.includes('fwd=bypass'))
+        var detail = e => (e.find(p => p.startsWith('detail=')) || 'detail=').slice(7)
+        if (hit) return hit[0].replace('braid-', '') + ' (' + detail(hit) + ')'
+        if (stale) return stale[0].replace('braid-', '') + ' (stale)'
+        if (bypass) return 'origin (' + detail(bypass) + ')'
+        return 'origin'
+    }
 
     function render_status () {
         var age = Math.round((Date.now() - edited_at) / 1000)
@@ -94,6 +109,8 @@
         onSubscriptionStatus: status => { online = status.online; render_status() }
     }).then(res => {
         served_by = node_name(res.headers)
+        var status = res.headers.get('cache-status')
+        if (status) served_by += ', ' + describe_cache_status(status)
         render_status()
         res.subscribe(update => {
             var doc = new DOMParser().parseFromString(update.body_text, 'text/html')
