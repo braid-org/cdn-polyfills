@@ -124,8 +124,11 @@ function serve_resource (req, res, resource) {
     // Caches that do not understand subscriptions must check every time,
     // and the ETag makes that a cheap 304; a Braid-aware cache serves from
     // its copy for as long as it holds a subscription instead.  If the
-    // origin is down, any cache may serve what it has for a day.
-    res.setHeader('Cache-Control', 'public, max-age=0, stale-if-error=86400')
+    // origin is down, any cache may serve what it has for a day.  Each
+    // sub-response of a subscription carries this too, since braidify marks
+    // the 209 itself no-store.
+    var cache_control = 'public, max-age=0, stale-if-error=86400'
+    res.setHeader('Cache-Control', cache_control)
 
     if (req.subscribe) {
         // Lets a subscriber resuming from the current edition tell "nothing
@@ -140,7 +143,8 @@ function serve_resource (req, res, resource) {
 
         // A subscriber resuming from the current edition has missed nothing
         if (!req.parents || req.parents[0] !== version)
-            res.sendUpdate({version: [version], body: resource.body()})
+            res.sendUpdate({version: [version], body: resource.body(),
+                            'Cache-Control': cache_control})
     } else if (req.headers['if-none-match'] === etag) {
         res.statusCode = 304
         res.end()
