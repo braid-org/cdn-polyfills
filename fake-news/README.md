@@ -25,14 +25,38 @@ Every `GET` accepts `Subscribe: true` and answers with a `209 Multiresponse`
 that stays open, sending the complete new representation each time the
 resource changes.  Each response carries `Version: "<edition>"`, and a
 subscriber that sends `Parents: "<edition>"` for the current edition gets no
-redundant snapshot.  Plain responses carry an `ETag` for `If-None-Match`.
+redundant snapshot, only a `104 Origin Status` sub-response saying
+`State: up`; one that gets a snapshot gets the 104 after it.  Plain
+responses carry an `ETag` for `If-None-Match`.
 
     curl -i -H 'Subscribe: true' http://localhost:8080/
+
+The front page's script subscribes to the page's own URL.  With
+`/?poll=<ms>` it polls the URL instead, the way a page behind a CDN that
+knows nothing of subscriptions would.
+
+## The same page over a websocket
+
+For comparison, the way sites bolt live updates onto a CDN today:
+
+| URL | What |
+|---|---|
+| `GET /shell` | the front page's masthead, style and footer with no articles, cacheable for an hour |
+| `GET /ws` | a websocket that sends the articles as JSON on connect and on every publish |
+
+The static part names the websocket to fill it from: its own host, or
+`FAKE_NEWS_WS_URL` in the environment when a proxy in front answers to
+another name.  `/stats` counts open websockets too.
+
+Framed by a comparison page, both pages report their timings to it with
+`postMessage`: the browser's time to first and last byte, when the page
+became live, and each edition's delay from publish to screen.
 
 ## Files
 
 - `server.js`: the server, using braid-http's `braidify` for subscriptions
 - `client.html`: the front page, with its style and reader-side script, and placeholders for the edition
+- `shell.html`: the front page's static part, filled over the websocket
 - `render.js`: fills client.html with the current articles
 - `articles.js`: the stories
 - `admin.html`: the admin page
