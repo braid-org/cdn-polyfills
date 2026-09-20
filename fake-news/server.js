@@ -128,6 +128,9 @@ function serve_resource (req, res, resource) {
     var version = resource.version(),
         etag = JSON.stringify(version)
 
+    // Readable from any page, as the comparison page on another host reads
+    // the state
+    free_cors(res)
     res.setHeader('Repr-Type', resource.repr_type)
     res.setHeader('ETag', etag)
 
