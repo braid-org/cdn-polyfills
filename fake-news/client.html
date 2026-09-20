@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>window.first_bytes_ms = performance.now()</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fake News</title>
@@ -116,19 +117,33 @@
     }
 
     // When framed by a comparison page, reports what this page saw: its
-    // own load timings from the browser, then each event
+    // own load timings from the browser, then each event.  A browser can
+    // leave the navigation entry's response times at 0 in a cross-origin
+    // frame, so the legacy timing and the clock reading of the first
+    // script in the head stand in.
+    function load_timings () {
+        var nav = performance.getEntriesByType('navigation')[0],
+            legacy = performance.timing,
+            nonzero = x => x > 0 ? Math.round(x) : undefined
+        return {
+            ttfb_ms: nonzero(nav?.responseStart)
+                ?? nonzero(legacy.responseStart - legacy.navigationStart)
+                ?? nonzero(window.first_bytes_ms),
+            ttlb_ms: nonzero(nav?.responseEnd)
+                ?? nonzero(legacy.responseEnd - legacy.navigationStart)
+        }
+    }
     function report (event, fields) {
         if (window.parent === window) return
-        var nav = performance.getEntriesByType('navigation')[0]
         window.parent.postMessage({
             kind: 'fake-news', event, edition: version, edited_at,
-            ttfb_ms: nav && Math.round(nav.responseStart),
-            ttlb_ms: nav && Math.round(nav.responseEnd),
+            ...load_timings(),
             page_from, served_by, mode: poll_ms ? 'poll' : 'subscribe',
             ...fields
         }, '*')
     }
     report('loaded')
+    window.addEventListener('load', () => report('loaded'))
 
     // With ?poll=<ms>, the page polls its own URL instead of subscribing,
     // as a page behind a CDN that knows nothing of subscriptions would,
