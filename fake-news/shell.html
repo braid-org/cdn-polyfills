@@ -51,9 +51,15 @@
 // page took to fill after it loaded, and each edition's delay from the
 // server's publish time to this screen, on this browser's clock.
 (function () {
-    var ws_url = document.querySelector('meta[name="ws-url"]').content,
+    // The websocket's URL, relative to this page unless the server gave a
+    // whole one, with the page's own scheme turned into the websocket's
+    var ws_url = new URL(document.querySelector('meta[name="ws-url"]').content,
+                         location.href),
         loaded_at = Date.now(),
         filled_after = null, delay = null, edition = null, online = false
+    ws_url.protocol = ws_url.protocol === 'https:' ? 'wss:'
+                    : ws_url.protocol === 'http:' ? 'ws:' : ws_url.protocol
+    ws_url = ws_url.href
 
     // When framed by a comparison page, reports what this page saw: its
     // own load timings from the browser, then each event

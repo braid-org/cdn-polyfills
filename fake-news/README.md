@@ -44,9 +44,10 @@ For comparison, the way sites bolt live updates onto a CDN today:
 | `GET /shell` | the front page's masthead, style and footer with no articles, cacheable for an hour |
 | `GET /ws` | a websocket that sends the articles as JSON on connect and on every publish |
 
-The static part names the websocket to fill it from: its own host, or
-`FAKE_NEWS_WS_URL` in the environment when a proxy in front answers to
-another name.  `/stats` counts open websockets too.
+The static part names the websocket to fill it from as `/ws` on whatever
+host it was loaded from, so a CDN in front must pass websocket upgrades
+through; `FAKE_NEWS_WS_URL` in the environment names another URL when one
+cannot.  `/stats` counts open websockets too.
 
 Framed by a comparison page, both pages report their timings to it with
 `postMessage`: the browser's time to first and last byte, when the page

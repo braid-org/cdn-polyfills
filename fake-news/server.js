@@ -241,13 +241,11 @@ async function route (req, res, url) {
 
 // ---- The static shell and its websocket ----
 
-// The shell names the websocket to fill it from: this server's own host,
-// or FAKE_NEWS_WS_URL when a proxy in front answers to another name
+// The static part names the websocket to fill it from: `/ws` on whatever
+// host the page was loaded from, which a CDN in front must pass through,
+// or FAKE_NEWS_WS_URL when one cannot
 function serve_shell (req, res) {
-    var host = req.headers.host ?? 'localhost',
-        ws_url = process.env.FAKE_NEWS_WS_URL
-            ?? (/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? 'ws://' : 'wss://')
-               + host + '/ws',
+    var ws_url = process.env.FAKE_NEWS_WS_URL ?? '/ws',
         html = fs.readFileSync(path.join(__dirname, 'shell.html'), 'utf8')
                  .replace('{{ws_url}}', ws_url)
     res.writeHead(200, {'Content-Type': 'text/html',
