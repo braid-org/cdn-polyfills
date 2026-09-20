@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake News</title>
+<meta name="ws-url" content="{{ws_url}}">
+<style>
+  /* The front page's look, as in client.html: a static shell carries its
+     own copy, since it is served and cached on its own */
+  body { margin: 0; padding-bottom: 40px; font-family: Georgia, 'Times New Roman', serif; color: #111; background: #f7f5f0; }
+  #masthead { text-align: center; padding: 28px 16px 10px; margin: 0 16px; border-bottom: 4px double #111; }
+  #masthead h1 { font-size: 64px; margin: 0; letter-spacing: 3px; font-variant: small-caps; font-weight: 900; }
+  #masthead h1 a { color: inherit; text-decoration: none; }
+  #masthead .tagline { font-style: italic; color: #555; margin: 4px 0 10px; }
+  #masthead .dateline { display: flex; justify-content: space-between; font: 12px system-ui, sans-serif; text-transform: uppercase; letter-spacing: 1px; color: #555; border-top: 1px solid #111; padding-top: 6px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+  .breaking { background: #b3001b; color: #fff; padding: 18px 22px; margin-bottom: 28px; }
+  .breaking .label { font: bold 13px system-ui, sans-serif; letter-spacing: 3px; }
+  .breaking h2 { font-size: 36px; line-height: 1.1; margin: 6px 0 8px; }
+  .breaking .byline { color: #fdd; }
+  .breaking .dek { color: #fee; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px; }
+  article.lead { grid-column: 1 / -1; border-bottom: 1px solid #ccc; padding-bottom: 20px; }
+  article.lead h2 { font-size: 40px; }
+  article.lead .body { columns: 2; column-gap: 32px; }
+  article h2 { font-size: 26px; line-height: 1.15; margin: 0 0 6px; }
+  .byline { font: 12px system-ui, sans-serif; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 4px; }
+  .dek { font-style: italic; color: #444; margin: 0 0 8px; }
+  .body p { line-height: 1.5; margin: 0 0 12px; }
+  .empty { text-align: center; color: #666; font-style: italic; padding: 60px 0; }
+  #status { position: fixed; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 6px 24px; padding: 7px 16px; background: #111; color: #ccc; font: 12px system-ui, sans-serif; }
+  #status b { color: #fff; font-weight: 600; }
+  #status .online { color: #5c5; }
+  #status .offline { color: #e55; }
+  @media (max-width: 600px) { #masthead h1 { font-size: 40px; } .breaking h2, article.lead h2 { font-size: 28px; } article.lead .body { columns: 1; } }
+</style>
+</head>
+<body>
+<header id="masthead">
+  <h1><a href="/shell">Fake News</a></h1>
+  <div class="tagline">All the news that's fit to fake</div>
+  <div class="dateline"><span id="dateline"></span><span>fake.braid.news</span><span id="edition">Loading</span></div>
+</header>
+<main id="content"><div class="empty">Loading the news over a websocket.</div></main>
+<footer id="status"></footer>
+<script>
+// Fills the page over a websocket: the first message is the current
+// edition, each later one a publish.  The markup mirrors render.js on the
+// server.  The footer reports the edition, the connection, how long the
+// page took to fill after it loaded, and each edition's delay from the
+// server's publish time to this screen, on this browser's clock.
+(function () {
+    var ws_url = document.querySelector('meta[name="ws-url"]').content,
+        loaded_at = Date.now(),
+        filled_after = null, delay = null, edition = null, online = false
+
+    // When framed by a comparison page, reports what this page saw: its
+    // own load timings from the browser, then each event
+    function report (event, fields) {
+        if (window.parent === window) return
+        var nav = performance.getEntriesByType('navigation')[0]
+        window.parent.postMessage({
+            kind: 'fake-news', event, edition, mode: 'websocket',
+            ttfb_ms: nav && Math.round(nav.responseStart),
+            ttlb_ms: nav && Math.round(nav.responseEnd),
+            page_from: 'static part', served_by: 'websocket to ' + ws_url,
+            ...fields
+        }, '*')
+    }
+    report('loaded')
+
+    function connect () {
+        var socket = new WebSocket(ws_url)
+        socket.onopen = () => { online = true; render_status() }
+        socket.onmessage = event => {
+            var state = JSON.parse(event.data), now = Date.now(), first = filled_after === null
+            if (first) filled_after = now - loaded_at
+            delay = now - state.edited_at
+            edition = state.version
+            render(state)
+            render_status()
+            if (first) report('connected', {ready_ms: Math.round(performance.now())})
+            else report('update', {delay_ms: delay})
+        }
+        socket.onclose = () => { online = false; render_status(); setTimeout(connect, 1000) }
+        socket.onerror = () => socket.close()
+    }
+    connect()
+
+    function render (state) {
+        var breaking = state.articles.find(a => a.breaking && a.published),
+            published = state.articles.filter(a => !a.breaking && a.published),
+            [lead, ...rest] = published
+        document.getElementById('content').innerHTML =
+            (breaking ? render_breaking(breaking) : '')
+            + (published.length === 0
+               ? '<div class="empty">Nothing to report.  Check back soon.</div>'
+               : '<div class="grid">' + render_article(lead, 'lead')
+                 + rest.map(a => render_article(a)).join('') + '</div>')
+        document.getElementById('dateline').textContent =
+            new Date(state.edited_at).toLocaleDateString('en-US',
+                {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})
+        document.getElementById('edition').textContent = 'Edition No. ' + state.version
+    }
+    function render_breaking (a) {
+        return '<section class="breaking"><div class="label">BREAKING NEWS</div>'
+            + '<h2>' + escape(a.title) + '</h2><div class="byline">' + escape(a.byline) + '</div>'
+            + '<p class="dek">' + escape(a.dek) + '</p><div class="body">'
+            + a.body.map(p => '<p>' + escape(p) + '</p>').join('') + '</div></section>'
+    }
+    function render_article (a, cls) {
+        return '<article class="' + (cls || '') + '" id="article-' + escape(a.id) + '">'
+            + '<h2>' + escape(a.title) + '</h2><div class="byline">' + escape(a.byline) + '</div>'
+            + '<p class="dek">' + escape(a.dek) + '</p><div class="body">'
+            + a.body.map(p => '<p>' + escape(p) + '</p>').join('') + '</div></article>'
+    }
+    function escape (text) {
+        return String(text).replace(/[&<>"']/g,
+            c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]))
+    }
+    function render_status () {
+        document.getElementById('status').innerHTML =
+            '<span>Edition <b>' + (edition ?? '…') + '</b></span>'
+            + '<span>Static shell, filled over a websocket: '
+            + (online ? '<span class="online">connected</span>' : '<span class="offline">disconnected</span>') + '</span>'
+            + '<span>Filled <b>' + (filled_after === null ? '…' : filled_after + ' ms') + '</b> after the page loaded</span>'
+            + '<span>Edit to screen <b>' + (delay === null ? '…' : delay + ' ms') + '</b></span>'
+    }
+    render_status()
+})()
+</script>
+</body>
+</html>
