@@ -69,9 +69,10 @@
             hit = entries.find(e => e.includes('hit')),
             stale = entries.find(e => e.some(p => p.startsWith('fwd=stale'))),
             bypass = entries.find(e => e.includes('fwd=bypass'))
-        var detail = e => (e.find(p => p.startsWith('detail=')) || 'detail=').slice(7)
-        if (hit) return hit[0].replace('braid-', '') + ' (' + detail(hit) + ')'
-        if (stale) return stale[0].replace('braid-', '') + ' (stale)'
+        var detail = e => (e.find(p => p.startsWith('detail=')) || 'detail=').slice(7),
+            region = e => { var r = e.find(p => p.startsWith('region=')); return r ? ' in ' + r.slice(7) : '' }
+        if (hit) return hit[0].replace('braid-', '') + region(hit) + ' (' + detail(hit) + ')'
+        if (stale) return stale[0].replace('braid-', '') + region(stale) + ' (stale)'
         if (bypass) return 'origin (' + detail(bypass) + ')'
         return 'origin'
     }
@@ -113,6 +114,8 @@
         if (status) served_by += ', ' + describe_cache_status(status)
         render_status()
         res.subscribe(update => {
+            // 1xx sub-responses carry status, not an edition
+            if (update.status >= 100 && update.status < 200) return
             var doc = new DOMParser().parseFromString(update.body_text, 'text/html')
             document.getElementById('masthead').replaceWith(doc.getElementById('masthead'))
             document.getElementById('content').replaceWith(doc.getElementById('content'))
