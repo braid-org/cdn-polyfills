@@ -127,6 +127,8 @@ var resources = {
             websockets: websockets.size,
             requests: stats.requests,
             updates_sent: stats.updates_sent,
+            purges: stats.purges,
+            last_purge_ms: stats.last_purge_ms,
             uptime_seconds: Math.round((Date.now() - stats.started_at) / 1000)
         }, null, 2)
     }

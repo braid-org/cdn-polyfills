@@ -140,15 +140,19 @@
     // With ?poll=<ms>, the page polls its own URL instead of subscribing,
     // as a page behind a CDN that knows nothing of subscriptions would,
     // and sees a new edition only once the cache on the way lets it
-    // through
-    var poll_ms = parseInt(new URLSearchParams(location.search).get('poll'))
+    // through.  A "cold" parameter is a test's way of loading the page at
+    // a URL no cache has seen; the polls leave it out, so that they ask
+    // for the page every reader asks for, the one a CDN purges.
+    var poll_ms = parseInt(new URLSearchParams(location.search).get('poll')),
+        poll_url = new URL(location.href)
+    poll_url.searchParams.delete('cold')
     if (isFinite(poll_ms) && poll_ms > 0) {
         online = true
         served_by = 'polling every ' + poll_ms + ' ms'
         render_status()
         report('connected', {ready_ms: Math.round(performance.now())})
         setInterval(async () => {
-            var res = await fetch(location.href),
+            var res = await fetch(poll_url),
                 doc = new DOMParser().parseFromString(await res.text(), 'text/html'),
                 seen = doc.querySelector('meta[name="version"]')?.content
             served_by = 'polling every ' + poll_ms + ' ms, from '
