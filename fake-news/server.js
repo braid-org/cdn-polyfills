@@ -29,7 +29,14 @@ var http = require('http'),
 
 var port = process.argv[2] || process.env.PORT || 8080,
     state_file = path.join(__dirname, 'state.json'),
-    client_library = path.join(__dirname, 'node_modules/braid-http/braid-http-client.js')
+    // The client library the pages load: a copy of braid-http's draft
+    // client kept beside the server, since the published client stalls
+    // when a page opens two subscriptions at once through a new
+    // multiplexer, as the admin page does; the package's own client
+    // serves once a release carries the fix
+    client_library = fs.existsSync(path.join(__dirname, 'braid-http-client.js'))
+        ? path.join(__dirname, 'braid-http-client.js')
+        : path.join(__dirname, 'node_modules/braid-http/braid-http-client.js')
 
 // Runtime state is only the published flags, plus an edition number that
 // every change increments.  It is mirrored to state.json so a restart keeps
