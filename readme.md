@@ -16,6 +16,8 @@ This provides two major performance improvements:
    - First load is way faster, because the page doesn't have to wait on a WebSocket to open to the origin and fetch the data after the page has loaded.
    - The subscriptions can fan out through the CDN to N clients, requiring only 1 subscription to the origin server
 
+Presented at Braid [Meeting 144](https://braid.org/meeting-144).
+
 ## How to use
 
 - Add the polyfill to your CDN (see below)
