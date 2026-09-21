@@ -102,9 +102,25 @@ var resources = {
 }
 for (var r of Object.values(resources)) r.subscribers = new Set()
 
+// Header fields every edition carries, on the response to a plain GET and
+// on each sub-response of a subscription alike, since a Braid-aware cache
+// keeps its copy from either and serves it with that copy's own fields.
+// Caches that do not understand subscriptions must check every time, and
+// the ETag makes that a cheap 304; a Braid-aware cache serves from its
+// copy for as long as it holds a subscription instead; if the origin is
+// down, any cache may serve what it has for a day.  Any page may read an
+// edition, as the comparison page on another host reads the state, and
+// any page that frames one may time it, since Firefox hides a framed
+// document's first byte without Timing-Allow-Origin.
+var edition_headers = {
+    'Cache-Control': 'public, max-age=0, stale-if-error=86400',
+    'Access-Control-Allow-Origin': '*',
+    'Timing-Allow-Origin': '*'
+}
+
 function broadcast (url) {
     var resource = resources[url],
-        update = {version: [resource.version()], body: resource.body()}
+        update = {version: [resource.version()], body: resource.body(), ...edition_headers}
     for (var res of resource.subscribers) {
         res.sendUpdate(update)
         stats.updates_sent++
@@ -128,22 +144,10 @@ function serve_resource (req, res, resource) {
     var version = resource.version(),
         etag = JSON.stringify(version)
 
-    // Readable from any page, as the comparison page on another host reads
-    // the state; and timed by any page that frames one, since Firefox hides
-    // a framed document's first byte from it without Timing-Allow-Origin
     free_cors(res)
-    res.setHeader('Timing-Allow-Origin', '*')
+    for (var [name, value] of Object.entries(edition_headers)) res.setHeader(name, value)
     res.setHeader('Repr-Type', resource.repr_type)
     res.setHeader('ETag', etag)
-
-    // Caches that do not understand subscriptions must check every time,
-    // and the ETag makes that a cheap 304; a Braid-aware cache serves from
-    // its copy for as long as it holds a subscription instead.  If the
-    // origin is down, any cache may serve what it has for a day.  Each
-    // sub-response of a subscription carries this too, since braidify marks
-    // the 209 itself no-store.
-    var cache_control = 'public, max-age=0, stale-if-error=86400'
-    res.setHeader('Cache-Control', cache_control)
 
     if (req.subscribe) {
         // Lets a subscriber resuming from the current edition tell "nothing
@@ -158,8 +162,7 @@ function serve_resource (req, res, resource) {
 
         // A subscriber resuming from the current edition has missed nothing
         if (!req.parents || req.parents[0] !== version)
-            res.sendUpdate({version: [version], body: resource.body(),
-                            'Cache-Control': cache_control})
+            res.sendUpdate({version: [version], body: resource.body(), ...edition_headers})
 
         // From here the subscriber has everything, and is told so with a
         // 104 Origin Status sub-response, which caches in between pass on.
