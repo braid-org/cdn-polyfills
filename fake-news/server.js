@@ -60,11 +60,42 @@ function set_published (id, published) {
     broadcast('/')
     broadcast('/state')
     broadcast_websockets()
+    purge_cdn()
 }
 
 // Counters shown on the admin page
 // The stats version starts from the clock so it keeps rising across restarts
-var stats = {started_at: Date.now(), requests: 0, updates_sent: 0, stats_version: Date.now()}
+var stats = {started_at: Date.now(), requests: 0, updates_sent: 0, purges: 0,
+             last_purge_ms: null, stats_version: Date.now()}
+
+// A CDN in front that knows nothing of subscriptions learns of an edition
+// the way such CDNs do: by a purge.  PURGE_URLS names the page's URLs on
+// that CDN, and each edition purges them through Cloudflare's purge-by-URL
+// API, authorized by CLOUDFLARE_PURGE_TOKEN for the zone CLOUDFLARE_ZONE_ID.
+// The purge is sent as the edition is made and not waited for; the time
+// the API took to answer is kept in the stats.  Without all three settings
+// nothing is purged.
+var purge_urls = (process.env.PURGE_URLS ?? '').split(/[\s,]+/).filter(Boolean),
+    purge_zone = process.env.CLOUDFLARE_ZONE_ID,
+    purge_token = process.env.CLOUDFLARE_PURGE_TOKEN
+async function purge_cdn () {
+    if (!purge_urls.length || !purge_zone || !purge_token) return
+    var t0 = Date.now()
+    try {
+        var res = await fetch(`https://api.cloudflare.com/client/v4/zones/${purge_zone}/purge_cache`, {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + purge_token,
+                          'Content-Type': 'application/json'},
+                body: JSON.stringify({files: purge_urls})
+            }),
+            answer = await res.json()
+        stats.purges++
+        stats.last_purge_ms = Date.now() - t0
+        stats_changed()
+        console.log(`  purged ${purge_urls.length} URL(s) in ${stats.last_purge_ms} ms: `
+                    + (answer.success ? 'ok' : JSON.stringify(answer.errors)))
+    } catch (e) { console.log(`  purge failed: ${e.message}`) }
+}
 
 var resources = {
     '/': {
@@ -107,13 +138,15 @@ for (var r of Object.values(resources)) r.subscribers = new Set()
 // keeps its copy from either and serves it with that copy's own fields.
 // Caches that do not understand subscriptions must check every time, and
 // the ETag makes that a cheap 304; a Braid-aware cache serves from its
-// copy for as long as it holds a subscription instead; if the origin is
-// down, any cache may serve what it has for a day.  Any page may read an
+// copy for as long as it holds a subscription instead.  A copy up to a
+// minute stale may be served while the cache revalidates, which a
+// Braid-aware cache does by subscribing, and if the origin is down, any
+// cache may serve what it has for a day.  Any page may read an
 // edition, as the comparison page on another host reads the state, and
 // any page that frames one may time it, since Firefox hides a framed
 // document's first byte without Timing-Allow-Origin.
 var edition_headers = {
-    'Cache-Control': 'public, max-age=0, stale-if-error=86400',
+    'Cache-Control': 'public, max-age=0, stale-while-revalidate=60, stale-if-error=86400',
     'Access-Control-Allow-Origin': '*',
     'Timing-Allow-Origin': '*'
 }
