@@ -153,6 +153,10 @@ function serve_resource (req, res, resource) {
         // Lets a subscriber resuming from the current edition tell "nothing
         // missed" from "nothing sent yet"
         res.setHeader('Current-Version', JSON.stringify(version))
+        // Asks proxies to forward each update as it is written rather than
+        // buffer it (RFC 10036); the TLS proxy in front of this server turns
+        // Nagle's algorithm off for a response so marked
+        res.setHeader('Incremental', '?1')
         res.startSubscription({onClose: () => {
             resource.subscribers.delete(res)
             stats_changed()
