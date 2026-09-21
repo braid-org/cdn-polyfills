@@ -2,7 +2,7 @@
 
 These polyfills give the Braid-HTTP power of *subscriptions* to CDNs:
 
-  - Cloudflare 
+  - Cloudflare
   - Fastly `planned`
   - Bunny.net `planned`
 
@@ -12,18 +12,18 @@ This provides two major performance improvements:
    - Tell the CDN to purge a cache entry (in 0.5 RTT)
    - Have a client try to GET it again
    - And then (in 1 RTT) have the CDN go to the origin to fetch the new value
-2. **Dyanmic pages** that use a WebSocket or SSE today (bypassing the CDN) can instead *fan out through* the CDN, and *cache* updates there
+2. **Dynamic pages** that use a WebSocket or SSE today (bypassing the CDN) can instead *fan out through* the CDN, and *cache* updates there
    - First load is way faster, because the page doesn't have to wait on a WebSocket to open to the origin and fetch the data after the page has loaded.
    - The subscriptions can fan out through the CDN to N clients, requiring only 1 subscription to the origin server
 
 ## How to use
 
 - Add the polyfill to your CDN (see below)
-- Now you can put it in front of any origin server that speaks Braid-HTTP, and it will become a distributed *synchronized* cache, that fans out subscriptions to clients, keeping everyone up-to-date, with minimal load on your server.
+- Now you can put it in front of any origin server that speaks Braid-HTTP, and it will become a distributed *synchronized* cache that fans out subscriptions to clients, keeping everyone up to date with minimal load on your server.
 
 ## Implementation Status
 
-Thus far, we've implemented a polyfill for Cloudflare.  It adds a cloudflare edge worker, that reads the Braid headers and routes requests to an internal Durable Object that maintains a persistent subscription upstream to the Braid-hTTP origin.
+Thus far, we've implemented a polyfill for Cloudflare.  It adds a Cloudflare edge Worker that reads the Braid headers and routes requests to an internal Durable Object, which maintains a persistent subscription upstream to the Braid-HTTP origin.
 
 ## Cloudflare Instructions
 
