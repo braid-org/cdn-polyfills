@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-<script>window.first_bytes_ms = performance.now()</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fake News</title>
@@ -117,21 +116,14 @@
     }
 
     // When framed by a comparison page, reports what this page saw: its
-    // own load timings from the browser, then each event.  A browser can
-    // leave the navigation entry's response times at 0 in a cross-origin
-    // frame, so the legacy timing and the clock reading of the first
-    // script in the head stand in.
+    // own load timings from the browser, then each event.  Firefox gives
+    // a framed document its first byte only when the response carried
+    // Timing-Allow-Origin, which Fake News sends; without it the value is
+    // 0 and is left out rather than guessed.
     function load_timings () {
         var nav = performance.getEntriesByType('navigation')[0],
-            legacy = performance.timing,
             nonzero = x => x > 0 ? Math.round(x) : undefined
-        return {
-            ttfb_ms: nonzero(nav?.responseStart)
-                ?? nonzero(legacy.responseStart - legacy.navigationStart)
-                ?? nonzero(window.first_bytes_ms),
-            ttlb_ms: nonzero(nav?.responseEnd)
-                ?? nonzero(legacy.responseEnd - legacy.navigationStart)
-        }
+        return {ttfb_ms: nonzero(nav?.responseStart), ttlb_ms: nonzero(nav?.responseEnd)}
     }
     function report (event, fields) {
         if (window.parent === window) return

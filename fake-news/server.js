@@ -129,8 +129,10 @@ function serve_resource (req, res, resource) {
         etag = JSON.stringify(version)
 
     // Readable from any page, as the comparison page on another host reads
-    // the state
+    // the state; and timed by any page that frames one, since Firefox hides
+    // a framed document's first byte from it without Timing-Allow-Origin
     free_cors(res)
+    res.setHeader('Timing-Allow-Origin', '*')
     res.setHeader('Repr-Type', resource.repr_type)
     res.setHeader('ETag', etag)
 
@@ -252,7 +254,8 @@ function serve_shell (req, res) {
         html = fs.readFileSync(path.join(__dirname, 'shell.html'), 'utf8')
                  .replace('{{ws_url}}', ws_url)
     res.writeHead(200, {'Content-Type': 'text/html',
-                        'Cache-Control': 'public, max-age=3600'})
+                        'Cache-Control': 'public, max-age=3600',
+                        'Timing-Allow-Origin': '*'})
     res.end(html)
 }
 
