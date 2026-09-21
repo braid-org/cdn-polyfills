@@ -61,3 +61,18 @@ became live, and each edition's delay from publish to screen.
 - `render.js`: fills client.html with the current articles
 - `articles.js`: the stories
 - `admin.html`: the admin page
+
+## Purging a plain CDN on every edit
+
+A CDN that knows nothing of subscriptions learns of a new edition the
+way such CDNs do, by a purge.  With these three in the environment, every
+edition purges the named URLs through Cloudflare's purge-by-URL API, and
+`/stats` counts the purges and reports how long the last one took:
+
+    PURGE_URLS="https://cdn.example.com/ https://cdn.example.com/?poll=5000"
+    CLOUDFLARE_ZONE_ID=<the zone's id>
+    CLOUDFLARE_PURGE_TOKEN=<an API token with only Cache Purge on that zone>
+
+Cloudflare caches each URL with its query string separately and a purge
+names exact URLs, so the list must name every URL readers fetch.  Without
+all three settings nothing is purged.

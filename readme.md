@@ -8,13 +8,13 @@ These polyfills give the Braid-HTTP power of *subscriptions* to CDNs:
 
 This provides two major performance improvements:
 
-1. **Regular pages** get updates pushed to the cache in 0.5 RTT, rather than the existing 1.5 RTT that it takes to:
-  - Tell the CDN to purge a cache entry (in 0.5RTT)
-  - Have a client try to GET it again
-  - And then (in 1RTT) have the CDN go to the origin to fetch the new value
-2. **Dyanmic pages** that use a WebSocket or SSE today, which bypasses the CDN, can now fan out *through* the CDN, and cache themselves along the way
-  - First load is way faster, because the page doesn't have to wait on a WebSocket to open to the origin and fetch the data after the page has loaded.
-  - The subscriptions can fan out through the CDN to N clients, requiring only 1 subscription to the origin server
+1. **Regular pages** get updates pushed to the cache in **0.5 RTT**, rather than the existing **1.5 RTT** that it takes to:
+   - Tell the CDN to purge a cache entry (in 0.5 RTT)
+   - Have a client try to GET it again
+   - And then (in 1 RTT) have the CDN go to the origin to fetch the new value
+2. **Dyanmic pages** that use a WebSocket or SSE today (bypassing the CDN) can instead *fan out through* the CDN, and *cache* updates there
+   - First load is way faster, because the page doesn't have to wait on a WebSocket to open to the origin and fetch the data after the page has loaded.
+   - The subscriptions can fan out through the CDN to N clients, requiring only 1 subscription to the origin server
 
 ## How to use
 
