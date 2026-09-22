@@ -1,13 +1,26 @@
-name = "fake-news-edge"
+# The Braid-HTTP polyfill as a Cloudflare Worker.  Set ORIGIN to your
+# origin, then `npx wrangler deploy`.  The name is the worker's name in
+# your account, and the workers.dev address it gets; to serve your own
+# hostname instead, add a custom domain or a route (see readme.md).
+name = "braid-cloudflare"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 workers_dev = true
 
 [vars]
-ORIGIN = "https://fake.braid.news"
+# The origin the polyfill stands in front of.  Leave it unset to serve
+# a route in your own zone, where the request's own host is the origin.
+ORIGIN = "https://origin.example.com"
+# Seconds a regional object keeps a subscription to the origin open
+# after its last reader has gone
 IDLE_SECONDS = "60"
+# Seconds a data center keeps a subscription of its own after a plain
+# GET, so that the copy it stored stays current for the next reader;
+# "0" turns this off
 POST_GET_SUBSCRIPTION_SECONDS = "30"
 # Objects per site per reader's region ("reader"), or all in one region
+# named by its Durable Object location hint: wnam, enam, weur, eeur,
+# apac or oc
 REGIONS = "reader"
 # How regions reach the origin: "flat", each region subscribes itself
 MODE = "flat"
@@ -27,11 +40,7 @@ class_name = "BraidResource"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["Resource"]
-
-[[migrations]]
-tag = "v2"
-renamed_classes = [{from = "Resource", to = "BraidResource"}]
+new_sqlite_classes = ["BraidResource"]
 
 [observability]
 enabled = true
@@ -42,49 +51,3 @@ enabled = true
 # maximum.  The Free plan's 10 ms ends a stream within a minute.
 [limits]
 cpu_ms = 300000
-
-# The same polyfill in front of the cache-tests server, for measuring it
-# with cache-tests.  Post-GET subscriptions are off there, since the test
-# server answers each request from a numbered script and a subscription the
-# cache makes on its own would consume the next number.
-[env.cache-tests]
-name = "cache-tests-polyfill"
-vars = { ORIGIN = "https://cache-tests.braid.org", IDLE_SECONDS = "60", POST_GET_SUBSCRIPTION_SECONDS = "0", REGIONS = "wnam", MODE = "flat", ORIGIN_SENDS_STATUS = "false" }
-durable_objects.bindings = [{ name = "BRAID_RESOURCE", class_name = "BraidResource" }]
-
-# The polyfill as it is being rebuilt, deployed beside the demo's worker so
-# the demo keeps serving until this one is proven: `npx wrangler deploy
-# --env v2`.  Fake News sends 104 Origin Status itself since 2026-09-20;
-# deploy this only once fake.braid.news runs that version, or no copy at
-# the edge ever counts as live.
-[env.v2]
-name = "fake-news-edge-v2"
-vars = { ORIGIN = "https://fake.braid.news", IDLE_SECONDS = "60", POST_GET_SUBSCRIPTION_SECONDS = "30", REGIONS = "reader", MODE = "flat", ORIGIN_SENDS_STATUS = "true" }
-durable_objects.bindings = [{ name = "BRAID_RESOURCE", class_name = "BraidResource" }]
-limits = { cpu_ms = 300000 }
-
-# The same polyfill in front of mail.braid.org, on a workers.dev name for
-# trying a real site: `npx wrangler deploy --env mail`.  That origin sends
-# no 104s, and its page runs braid-http 1.5.1, which hands a 104 to the
-# page's own update handler, so readers get none.
-[env.mail]
-name = "mail-braid-edge"
-vars = { ORIGIN = "https://mail.braid.org", IDLE_SECONDS = "60", POST_GET_SUBSCRIPTION_SECONDS = "30", REGIONS = "reader", MODE = "flat", ORIGIN_SENDS_STATUS = "false", READER_STATUS = "false" }
-durable_objects.bindings = [{ name = "BRAID_RESOURCE", class_name = "BraidResource" }]
-limits = { cpu_ms = 300000 }
-
-# The same polyfill with every reader served from one far region, for
-# measuring what object placement costs a subscription
-# (experiments/subscribe-latency.mjs).  Each is its own deploy:
-# `npx wrangler deploy --env apac`.
-[env.apac]
-name = "fake-news-edge-apac"
-vars = { ORIGIN = "https://fake.braid.news", IDLE_SECONDS = "60", POST_GET_SUBSCRIPTION_SECONDS = "30", REGIONS = "apac", MODE = "flat", ORIGIN_SENDS_STATUS = "false" }
-durable_objects.bindings = [{ name = "BRAID_RESOURCE", class_name = "BraidResource" }]
-limits = { cpu_ms = 300000 }
-
-[env.weur]
-name = "fake-news-edge-weur"
-vars = { ORIGIN = "https://fake.braid.news", IDLE_SECONDS = "60", POST_GET_SUBSCRIPTION_SECONDS = "30", REGIONS = "weur", MODE = "flat", ORIGIN_SENDS_STATUS = "false" }
-durable_objects.bindings = [{ name = "BRAID_RESOURCE", class_name = "BraidResource" }]
-limits = { cpu_ms = 300000 }

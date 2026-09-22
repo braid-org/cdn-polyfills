@@ -1,8 +1,8 @@
 # Braid-HTTP polyfill for Cloudflare
 
-Makes a site behind Cloudflare behave as if Cloudflare understood
-[Braid-HTTP](https://braid.org) subscriptions natively.  Install it in front
-of a Braid origin and:
+Makes Cloudflare understood [Braid-HTTP](https://braid.org) subscriptions.
+
+Just install it in front of a Braid-HTTP website, and:
 
 - Subscriptions fan out at the edge: a thousand subscribed browsers cost the
   origin one connection per URL.
@@ -23,29 +23,41 @@ Into your own Cloudflare account, on your own bill.
    [braidify](https://github.com/braid-org/braid-http)).  The Paid plan
    matters: a Worker streaming a subscription accrues CPU for the life of
    the stream, and the Free plan's 10 ms per invocation ends every
-   subscription within a minute.
-2. Copy `router.js`, `resource.js`, `multiplexer.js`, `edge-cache.js`,
-   `http-history.js`, `worker.js`, and `wrangler.toml` into a project and
-   `npm install braid-http`.  `worker.js` is three lines:
+   subscription within a minute.  The origin must also be reachable
+   without Cloudflare's cache in the way, which means a DNS-only record
+   for its hostname, or, if the hostname is proxied, a cache rule that
+   bypasses the cache for requests carrying a `Subscribe` header, such
+   as `(len(http.request.headers["subscribe"]) > 0 and http.host eq
+   "origin.example.com")`.  Cloudflare's cache ignores `Vary` and would
+   otherwise answer the polyfill's subscriptions with a stored page.
+2. Take this directory as your project: `npm install` in it.  The
+   polyfill is the six source files, and `worker.js` is three lines:
 
        import {braid_polyfill, BraidResource} from './router.js'
        export {BraidResource}
        export default braid_polyfill()
-3. In `wrangler.toml`, set `ORIGIN` to your origin's address, or, to run on
-   a route in your zone, replace `workers_dev = true` with a `routes` entry
-   such as `example.com/*` and leave `ORIGIN` unset.  `REGIONS = "reader"`
+3. In `wrangler.toml`, set `name` to what the worker should be called in
+   your account and `ORIGIN` to your origin's address.  To run on a route
+   in your zone instead, replace `workers_dev = true` with a `routes` entry
+   such as `example.com/*` and leave `ORIGIN` unset; to give the worker
+   a hostname of its own, add
+   `routes = [{ pattern = "cdn.example.com", custom_domain = true }]` and
+   Cloudflare makes the DNS record and the certificate.  The other
+   settings are explained beside them in the file; `REGIONS = "reader"`
    gives each of six regions its own object for your site, each holding
-   its own subscriptions to your origin; a region's name instead puts every
-   reader on the object there.
+   its own subscriptions to your origin, and a region's name instead puts
+   every reader on the object there.
 4. `npx wrangler login`, then `npx wrangler deploy`.  The first deploy runs
-   the migrations that create the `BraidResource` Durable Object class.
+   the migration that creates the `BraidResource` Durable Object class.
 
 Cost: the Workers Paid plan, $5 a month, plus about half a cent per hour
 for each region in which the site has readers, at most six.  An idle
 object costs nothing.
 
-An npm package and an `npm create` template that do steps 2 and 3 for you
-are planned; see `plan.md`.
+The demo's own deployments, Fake News and the others, live in
+`demo/wrangler.toml` and are deployed with
+`npx wrangler deploy --config demo/wrangler.toml --env <name>`, so that
+the polyfill's `wrangler.toml` carries nothing of ours.
 
 ## What you get
 
@@ -153,7 +165,10 @@ reader, and never fanned out.
 - The origin's `Cache-Control` is honored.  A copy is live while a
   subscription keeps it so and fresh for the origin's `max-age` after,
   with `Age` counted from the moment it stopped being live; `no-cache`
-  copies are fresh only while live; `stale-if-error` copies are served,
+  copies are fresh only while live; a stale copy inside the origin's
+  `stale-while-revalidate` window is served at once, to a plain GET and
+  as the first sub-response of a subscription alike, while a subscription
+  behind it brings it live again; `stale-if-error` copies are served,
   marked stale, when the origin fails.  The policy is read from each
   sub-response's own `Cache-Control`.
 - Copies are keyed on the request's `Version` and `Parents` as well as the
@@ -215,7 +230,7 @@ reader, and never fanned out.
   keeping its copy live.  A page with hundreds of subscriptions costs the
   browser one stream.
 - A test suite: `npm test` runs the polyfill's own scenarios against
-  wrangler's local runtime and a local Fake News (`test/run.js`), including
+  wrangler's local runtime and a local Fake News (`test/run.cjs`), including
   braid-http's own client multiplexing through the polyfill; `npm test --
   <text>` runs only the scenarios whose names contain the text.
   `experiments/` holds the region and latency measurements.
@@ -296,10 +311,10 @@ came from, and which region's object it would use.
 
 ## Running the demo
 
-The origin in `wrangler.toml` is Fake News (`../fake-news`), a fictional
-news site.  Its admin page shows the origin's subscriber and request counts
-live, which is where the polyfill's effect is visible.
+The origin in `demo/wrangler.toml` is Fake News (`../fake-news`), a
+fictional news site.  Its admin page shows the origin's subscriber and
+request counts live, which is where the polyfill's effect is visible.
 
-    npx wrangler dev          # against a local origin, see .dev.vars
-    npx wrangler deploy
-    npx wrangler tail
+    npx wrangler dev                                          # against a local origin, see .dev.vars
+    npx wrangler deploy --config demo/wrangler.toml --env v2  # the polyfill at bcdn.fake.braid.news
+    npx wrangler tail --config demo/wrangler.toml --env v2

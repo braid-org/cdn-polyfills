@@ -8,24 +8,35 @@ These polyfills give the power of Braid-HTTP **subscriptions** to CDNs:
 
 This provides two major performance improvements:
 
-1. **Regular pages** get updates pushed to the cache in **0.5 RTT**, rather than the existing **1.5 RTT** that it takes to:
+1. **Regular pages** get updates pushed to the cache in **0.5 RTT**, rather
+   than the existing **1.5 RTT** that it takes to:
    - Tell the CDN to purge a cache entry (in 0.5 RTT)
    - Have a client try to GET it again
    - And then (in 1 RTT) have the CDN go to the origin to fetch the new value
-2. **Dynamic pages** that use a WebSocket or SSE today (bypassing the CDN) can instead *fan out through* the CDN, and *cache* updates there
-   - First load is way faster, because the page doesn't have to wait on a WebSocket to open to the origin and fetch the data after the page has loaded.
-   - The subscriptions can fan out through the CDN to N clients, requiring only 1 subscription to the origin server
+2. **Dynamic pages** that use a WebSocket or SSE today (bypassing the CDN) can
+   instead *fan out through* the CDN, and *cache* updates there
+   - First load is way faster, because the page doesn't have to wait on a
+     WebSocket to open to the origin and fetch the data after the page has
+     loaded.
+   - The subscriptions can fan out through the CDN to N clients, requiring
+     only 1 subscription to the origin server
 
 Presented at Braid [Meeting 144](https://braid.org/meeting-144).
 
 ## How to use
 
 - Add the polyfill to your CDN (see below)
-- Now you can put it in front of any origin server that speaks Braid-HTTP, and it will become a distributed *synchronized* cache that fans out subscriptions to clients, keeping everyone up to date with minimal load on your server.
+- Now you can put it in front of any origin server that speaks Braid-HTTP, and
+  it will become a distributed *synchronized* cache that fans out
+  subscriptions to clients, keeping everyone up to date with minimal load on
+  your server.
 
 ## Implementation Status
 
-Thus far, we've implemented a polyfill for Cloudflare.  It adds a Cloudflare edge Worker that reads the Braid headers and routes requests to an internal Durable Object, which maintains a persistent subscription upstream to the Braid-HTTP origin.
+Thus far, we've implemented a polyfill for Cloudflare.  It adds a Cloudflare
+edge Worker that reads the Braid headers and routes requests to an internal
+Durable Object, which maintains a persistent subscription upstream to the
+Braid-HTTP origin.
 
 ## Cloudflare Instructions
 
@@ -43,7 +54,7 @@ through a custom domain you add to the worker in the dashboard.  Every
 answer carries a `Cache-Status` header saying whether it came from a
 live copy at the edge, from the regional object, or from the origin.
 The settings, the cost, and `npm test` are described in
-[`cloudflare/README.md`](cloudflare/README.md).
+[`cloudflare/readme.md`](cloudflare/readme.md).
 
 ## Demo app: Fake News
 
@@ -64,4 +75,4 @@ To try it through the polyfill, run Fake News where Cloudflare can reach
 it and set `ORIGIN` in `cloudflare/wrangler.toml` to its URL.  The
 resources it serves, the same page over a websocket for comparison, and
 the settings that make it purge a plain CDN on every edit are described
-in [`fake-news/README.md`](fake-news/README.md).
+in [`fake-news/readme.md`](fake-news/readme.md).

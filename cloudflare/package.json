@@ -1,15 +1,28 @@
 {
-  "name": "fake-news-edge",
+  "name": "braid-cloudflare",
   "version": "0.0.1",
-  "private": true,
-  "description": "Cloudflare Worker that puts Fake News behind Cloudflare's edge",
+  "description": "Makes Cloudflare understand Braid-HTTP subscriptions.  Your website can PUSH updates into its cache!  And it fans out live subscriptions to N clients with 1 connection to your website.",
+  "type": "module",
+  "main": "router.js",
+  "files": [
+    "router.js",
+    "resource.js",
+    "multiplexer.js",
+    "edge-cache.js",
+    "http-history.js",
+    "worker.js",
+    "wrangler.toml",
+    "readme.md"
+  ],
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "test": "node test/run.js"
+    "test": "node test/run.cjs"
   },
   "dependencies": {
     "braid-http": "^1.5.1"
-  }
+  },
+  "repository": "github:braid-org/cdn-polyfills",
+  "license": "MIT"
 }
