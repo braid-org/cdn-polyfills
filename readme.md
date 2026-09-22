@@ -1,6 +1,6 @@
 # Braid Polyfills for CDNs
 
-These polyfills give the Braid-HTTP power of *subscriptions* to CDNs:
+These polyfills give the power of Braid-HTTP **subscriptions** to CDNs:
 
   - Cloudflare
   - Fastly `planned`
