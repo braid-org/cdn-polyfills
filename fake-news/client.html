@@ -54,11 +54,18 @@
 // the two clocks agree.
 (function () {
     var meta = name => document.querySelector('meta[name="' + name + '"]')?.content
+
+    // Find out how a CDN served this page, if one did: from this
+    // navigation's Server-Timing, where the polyfill says it, or from a
+    // <meta> stamped into the page
+    var cache_timing = performance.getEntriesByType('navigation')[0]?.serverTiming
+                           ?.find(entry => entry.name === 'cache')?.description
+
     var version = meta('version'),
         edited_at = +meta('edited-at'),
         online = false,
         latency = null,
-        page_from = describe_cache_status(meta('served-by')),
+        page_from = describe_cache_status(cache_timing || meta('served-by')),
         served_by = '…'
 
     // Turns a Cache-Status header (RFC 9211) into a few words: which cache
